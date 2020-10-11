@@ -51,8 +51,8 @@ object KafkaSpark {
     val pairs = linesArr.map(x => (x(0), x(1).toInt)) // taking from array so (0), (1)
 	
     // measure the average value for each key in a stateful manner (i.e. only on keys that are available in last micro batch) 
-    // keys are the count 
-    // values are the avg
+    // keys are the letter
+    // values are the count for key to update avg
 
     def mappingFunc(key: String, value: Option[Int], state: State[(Int, Int)]): (String, Double) = {
 	// if state exists, use that for current count and avg, otherwise initialise to 0.
