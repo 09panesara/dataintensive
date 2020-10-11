@@ -23,13 +23,13 @@ object KafkaSpark {
     // connect to Cassandra and make a keyspace and table as explained in the document
     val cluster = Cluster.builder().addContactPoint("127.0.0.1").build() 
     val session = cluster.connect()
-    session.execute("CREATE KEYSPACE IF NOT EXISTS avg_space WITH REPLICATION = { ’class’ : ’SimpleStrategy’, ’replication_factor’ : 1 };")
+    session.execute("CREATE KEYSPACE IF NOT EXISTS avg_space WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };")
     // create table avg with two columns (types text, float)
     session.execute("CREATE TABLE IF NOT EXISTS avg_space.avg (word text PRIMARY KEY, count float);") 
 
     // make a connection to Kafka and read (key, value) pairs from it
     val sparkConf = new SparkConf().setAppName("AvgValue").setMaster("local[*]")
-    val ssc = new StreamingContext(sparkConf, Seconds(1)) // TODO come back to time
+    val ssc = new StreamingContext(sparkConf, Seconds(2)) // TODO come back to time
     ssc.checkpoint("checkpoint")
 
     // define Kafka params as Map of config parameters to their values
@@ -53,24 +53,28 @@ object KafkaSpark {
     // measure the average value for each key in a stateful manner (i.e. only on keys that are available in last micro batch) 
     // keys are the count 
     // values are the avg
+
     def mappingFunc(key: String, value: Option[Int], state: State[(Int, Int)]): (String, Double) = {
 	// if state exists, use that for current count and avg, otherwise initialise to 0.
 	// store (sum, n) as state and then can compute avg from that
-	val currState:(Int,Int) = state.getOption.getOrElse((0,0))
-        val newVal = value.getOrElse(0) // get new value 
+	val newVal = value.getOrElse(0) // get new value 
+	val prevState = state.getOption.getOrElse((0,0))
 
-	val newSum = currState._1 + newVal
-	val newCount = currState._2 + 1
-        val avg = newSum / newCount
+	val newSum : Int = prevState._1 + newVal
+	val newCount = prevState._2 +1
 
-	state.update(newSum, newCount)
-	return (key, avg)
+	val avg: Double = newSum.toDouble / newCount
+	// println("key", key, ", avg", avg)
+	state.update((newSum, newCount))
+	(key, avg)
+
     }
+
     val stateDstream = pairs.mapWithState(StateSpec.function(mappingFunc _)) 
 
     // store the result in Cassandra
     stateDstream.saveToCassandra("avg_space", "avg", SomeColumns("word", "count"))
-
+    ssc.checkpoint("./checkpoints")
     ssc.start()
     ssc.awaitTermination()
     session.close()
