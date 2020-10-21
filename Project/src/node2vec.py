@@ -9,9 +9,10 @@ def save_embedding(model, save_dir, suffix):
 
 def load_graph(fpath):
     df = pd.read_csv(fpath) # only have edges from a->b here
-    df_reverse =  df.rename(columns={"source": "target", "target": "source"})# get edges from b->a since node2vec considers an edge directional
+    df = df.rename(columns={"0": "source", "1": "target"})
+    df_reverse = df.rename(columns={"0": "target", "1": "source"})# get edges from b->a since node2vec considers an edge directional
     graph = pd.concat([df, df_reverse])
-    graph = torch.tensor([graph['source'].tolist(), graph['target'].tolist()], dtype=torch.long)
+    graph = torch.tensor([df['source'].tolist(), df['target'].tolist()], dtype=torch.long)
     return graph
 
 def train(params):
