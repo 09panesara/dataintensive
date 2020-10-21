@@ -7,7 +7,7 @@ import pandas as pd
 def save_embedding(model, save_dir, suffix):
     torch.save(model.embedding.weight.data.cpu(), f'{save_dir}/embedding_{suffix}.pt')
 
-def load_graph(fpath='../data/graph.csv'):
+def load_graph(fpath):
     df = pd.read_csv(fpath) # only have edges from a->b here
     df_reverse =  df.rename(columns={"source": "target", "target": "source"})# get edges from b->a since node2vec considers an edge directional
     graph = pd.concat([df, df_reverse])
@@ -18,7 +18,7 @@ def train(params):
     device = f'cuda:{params.device}' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device)
 
-    data = load_graph(params.dataset)
+    data = load_graph(params.data_dir+'/train.csv')
     model = Node2Vec(data, params.embedding_dim, params.walk_length,
                      params.context_size, params.walks_per_node,
                      sparse=True).to(device)
@@ -48,7 +48,7 @@ def test():
 
 def main():
     parser = argparse.ArgumentParser(description='OGBL-DDI (Node2Vec)')
-    parser.add_argument('--dataset', type=str, default='../data/graph.csv')
+    parser.add_argument('--data_dir', type=str, default='../data/')
     # TODO change to datadir, ../data/graph and then train should use args.datadir/train.csv, test args.datadir/test.csv etc
     parser.add_argument('--model_dir', type=str, default='../model/node2vec', help='Directory to save model checkpoint in')
     parser.add_argument('--device', type=int, default=0)
